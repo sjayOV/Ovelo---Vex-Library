@@ -1,0 +1,37 @@
+name: Validate Ovelo
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test portable algorithms and simulator
+        run: make test example
+      - name: Run sanitizer tests
+        run: make sanitize
+
+  vex-v5-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install ARM embedded toolchain and PROS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+          python -m pip install 'pros-cli>=3.5,<4'
+      - name: Generate project using real PROS kernel 4.1.1
+        run: python tools/create_pros_project.py "$RUNNER_TEMP/ovelo-v5"
+      - name: Compile and link VEX V5 firmware
+        working-directory: ${{ runner.temp }}/ovelo-v5
+        run: pros make
